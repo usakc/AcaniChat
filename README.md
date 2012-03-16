@@ -11,8 +11,6 @@ that allows you to send chat bubbles to yourself. Next, we'll implement sending
 messages over the network through the Acani chat server.
 
 * ConversationsViewController: List of conversations (`UITableViewController`)
-  * Coming soon...
-
 * ChatViewController: One-on-one Chat (`UIViewController`)
   * chatContent (`UITableView`)
       * Identical UI (colors, layout, and font size) to iPhone's Messages app
