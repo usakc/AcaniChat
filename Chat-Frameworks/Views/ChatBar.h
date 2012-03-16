@@ -27,10 +27,11 @@ extern CGFloat const kChatBarHeight4;
 
 - (void) chatBar:(ChatBar *)chatBar didSendText: (NSString*) text; 
 
+- (void) chatBar:(ChatBar *)chat BarDidChangeText:(NSString *)text;
+
 @end
 
-@interface ChatBar : UIImageView
-<UITextViewDelegate>
+@interface ChatBar : UIImageView <UITextViewDelegate>
 {
     @private
     UITextView *chatInput;

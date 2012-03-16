@@ -7,19 +7,16 @@
 //
 
 #import "ChatViewController.h"
+#import "Message.h"
 
 @interface ChatViewController (Mutability)
 
-- (NSUInteger)addMessage:(id)message;
+- (NSUInteger)addMessage:(Message *)message;
 - (NSUInteger)removeMessageAtIndex:(NSUInteger)index;
 - (void)clearAll;
 
 - (void) clearAllMessage; 
 
 
-- (void) removeMessage: (id) message; 
-
-+ (NSDate *) sendDateInMessage: (id) message; 
-
-+ (void) setIsMine: (BOOL) isMine inMessage: (id) message; 
+- (void) removeMessage: (Message *) message; 
 @end

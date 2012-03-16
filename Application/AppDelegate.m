@@ -112,9 +112,11 @@ didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     NSError *error;
     persistentStoreCoordinator = [[NSPersistentStoreCoordinator alloc]
                                   initWithManagedObjectModel:self.managedObjectModel];
+	//[[NSFileManager defaultManager] removeItemAtURL:storeURL error:nil];
     if (![persistentStoreCoordinator addPersistentStoreWithType:NSSQLiteStoreType configuration:nil
                                                             URL:storeURL options:nil
                                                           error:&error]) {
+		
         NSLog(@"Unresolved error %@, %@", error, [error userInfo]);
     }    
     return persistentStoreCoordinator;

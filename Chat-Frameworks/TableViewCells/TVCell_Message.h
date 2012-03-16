@@ -7,16 +7,15 @@
 //
 
 #import <UIKit/UIKit.h>
-//#import "Message.h"
+#import "Message.h"
 @interface TVCell_Message : UITableViewCell
 {
     UIImageView *msgBackground;
     UILabel *msgText;
 }
-@property (nonatomic, strong) id message;
-@property (nonatomic, assign) BOOL rightward; 
+@property (nonatomic, strong) Message* message;
 
-- (void) setMessage:(id)message rightward: (BOOL) rightward; 
+- (void) setMessage:(Message* )message rightward: (BOOL) rightward; 
 
 - (id) initWithReuseIdentifier:(NSString *)reuseIdentifier;
 

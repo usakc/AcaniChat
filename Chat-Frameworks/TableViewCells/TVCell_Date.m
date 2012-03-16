@@ -32,8 +32,8 @@
         [_dateFormatter setTimeStyle:NSDateFormatterShortStyle];  // 1:43 PM
         
         // TODO: Get locale from iPhone system prefs. Then, move this to viewDidAppear.
-        NSLocale *usLocale = [[NSLocale alloc] initWithLocaleIdentifier:@"en_US"];
-        [_dateFormatter setLocale:usLocale];
+        //NSLocale *usLocale = [[NSLocale alloc] initWithLocaleIdentifier:@"en_US"];
+        [_dateFormatter setLocale:[NSLocale currentLocale]];
     }
     
     return _dateFormatter;

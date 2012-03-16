@@ -8,22 +8,23 @@
 
 #import "ChatViewController+Mutability.h"
 
-//#import "Message.h"
+#import "Message.h"
 
 
 #define ClearConversationButtonIndex 0
 
 @implementation ChatViewController (Mutability)
 
-+ (NSDate*) sendDateInMessage:(id)message {
-    return [message valueForKey: @"sentDate"];
++ (NSDate*) sendDateInMessage:(Message *)message {
+    //return [message valueForKey: @"sentDate"];
+	return message.sentDate;
 }
 
-+ (void) setIsMine:(BOOL)isMine inMessage:(id)message {
-    [message setValue: [NSNumber numberWithBool: isMine] forKey:@"isMine"];
++ (void) setIsMine:(BOOL)isMine inMessage:(Message *)message {
+    message.isMine = [NSNumber numberWithBool:isMine];
 }
 // Returns number of objects added to cellMap (1 or 2).
-- (NSUInteger)addMessage:(id)message 
+- (NSUInteger)addMessage:(Message *)message 
 {
     // Show sentDates at most every 15 minutes.
     NSDate *currentSentDate = [[self class] sendDateInMessage: message]; //  message.sentDate;
@@ -57,13 +58,7 @@
     }
     
     [cellMap addObject:message];
-    
-    BOOL isMine_ = (([cellMap count] %3) == 0);
-    [[self class] setIsMine: isMine_ inMessage: message];
-    //message.isMine = [NSNumber numberWithBool: (([cellMap count] %3) == 0)];
-    
-    //    [message.managedObjectContext save: nil];
-    
+	
     return numberOfObjectsAdded;
 }
 
@@ -72,6 +67,7 @@
     //    NSLog(@"Delete message from cellMap");
     
     // Remove message from cellMap.
+	[self removeMessage:[cellMap objectAtIndex:index]];
     [cellMap removeObjectAtIndex:index];
     NSUInteger numberOfObjectsRemoved = 1;
     NSUInteger prevIndex = index - 1;
@@ -81,7 +77,7 @@
     BOOL prevIsDate = [[cellMap objectAtIndex:prevIndex] isKindOfClass:[NSDate class]];
     
     if ((isLastObject && prevIsDate) ||
-        prevIsDate && [[cellMap objectAtIndex:index] isKindOfClass:[NSDate class]]) {
+        (prevIsDate && [[cellMap objectAtIndex:index] isKindOfClass:[NSDate class]])) {
         [cellMap removeObjectAtIndex:prevIndex];
         numberOfObjectsRemoved = 2;
     }
@@ -97,18 +93,39 @@
                               otherButtonTitles:nil];
 	
 	// use the same style as the nav bar
-	confirm.actionSheetStyle = self.navigationController.navigationBar.barStyle;
+	confirm.actionSheetStyle = (UIActionSheetStyle)self.navigationController.navigationBar.barStyle;
     
     [confirm showFromBarButtonItem:self.navigationItem.leftBarButtonItem animated:YES];
     //    [confirm showInView:self.view];
     
 }
 
-- (void) removeMessage:(id)message {
+- (void) removeMessage:(Message *)message {
+	// Remove message from managed object context by index path.
+    [managedObjectContext deleteObject:(Message *)message];
+    NSError *error;
+    if (![managedObjectContext save:&error]) {
+        // TODO: Handle the error appropriately.
+        NSLog(@"Delete message error %@, %@", error, [error userInfo]);
+    }
 
 }
 
 - (void) clearAllMessage {
+	NSError *error;
+    fetchedResultsController.delegate = nil;               // turn off delegate callbacks
+    for (Message *message in [fetchedResultsController fetchedObjects]) {
+        [managedObjectContext deleteObject:message];
+    }
+    if (![managedObjectContext save:&error]) {
+        // TODO: Handle the error appropriately.
+        NSLog(@"Delete message error %@, %@", error, [error userInfo]);
+    }
+    fetchedResultsController.delegate = self;              // reconnect after mass delete
+    if (![fetchedResultsController performFetch:&error]) { // resync controller
+        // TODO: Handle the error appropriately.
+        NSLog(@"fetchResults error %@, %@", error, [error userInfo]);
+    }
     
 }
 #pragma mark UIActionSheetDelegate
@@ -131,7 +148,7 @@
 - (UITableViewCellEditingStyle)tableView:(UITableView *)tableView
            editingStyleForRowAtIndexPath:(NSIndexPath *)indexPath {
     if (self.editing) { // disable slide to delete
-        return UITableViewCellEditingStyleDelete;
+		return UITableViewCellEditingStyleDelete;
         //        return 3; // used to work for check boxes
     }
     return UITableViewCellEditingStyleNone;

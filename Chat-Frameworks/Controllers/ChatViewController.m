@@ -7,7 +7,6 @@
 #import "TVCell_Date.h"
 #import "TVCell_Message.h"
 
-
 #import "ChatViewController+Mutability.h"
 #import "ChatViewController+Keyboard.h"
 
@@ -18,13 +17,13 @@
 
 #define RESET_CHAT_BAR_HEIGHT    SET_CHAT_BAR_HEIGHT(kChatBarHeight1)
 #define EXPAND_CHAT_BAR_HEIGHT    SET_CHAT_BAR_HEIGHT(kChatBarHeight4)
-#define    SET_CHAT_BAR_HEIGHT(HEIGHT)\
+#define SET_CHAT_BAR_HEIGHT(HEIGHT)\
 CGRect chatContentFrame = chatContent.frame;\
 chatContentFrame.size.height = VIEW_HEIGHT - HEIGHT;\
 [UIView beginAnimations:nil context:NULL];\
 [UIView setAnimationDuration:0.1f];\
 chatContent.frame = chatContentFrame;\
-chatBar.frame = CGRectMake(chatBar.frame.origin.x, chatContentFrame.size.height,\
+chatBar.frame = CGRectMake(chatBar.frame.origin.x, chatContentFrame.size.height + toViewHeight,\
 VIEW_WIDTH, HEIGHT);\
 [UIView commitAnimations]
 
@@ -32,21 +31,10 @@ VIEW_WIDTH, HEIGHT);\
 
 @implementation ChatViewController
 
-@synthesize  array = _array;
+@synthesize fetchedResultsController;
+@synthesize managedObjectContext;
+@synthesize conversation;
 
-- (void) setArray:(NSArray *)array {
-
-    _array = [array sortedArrayUsingDescriptors: [[self class] sortDescriptors]];
-    
-    [_array enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
-        NSString * text = [obj objectForKey: @"text"];
-        if ([text length] > 0) {
-            [self addMessage: obj];
-        }
-        
-    }];
-    [chatContent reloadData];
-}
 
 + (NSArray *) sortDescriptors {
     NSSortDescriptor *tsDesc = [[NSSortDescriptor alloc] initWithKey:@"sentDate" ascending:YES];
@@ -83,6 +71,77 @@ VIEW_WIDTH, HEIGHT);\
     [super viewDidUnload];
 }
 
+#pragma mark NSFetchedResultsController
+
+- (Conversation *) getConversationWithTitle:(NSString *)title
+{
+	NSFetchRequest *fetchRequest = [[NSFetchRequest alloc] init];
+    NSEntityDescription *entity = 
+    [NSEntityDescription entityForName:@"Conversation"
+                inManagedObjectContext:managedObjectContext];
+    [fetchRequest setEntity:entity];
+    [fetchRequest setFetchBatchSize:20];
+    
+    // Create the sort descriptors array.
+    
+    [fetchRequest setSortDescriptors:[NSArray arrayWithObject:[NSSortDescriptor sortDescriptorWithKey:@"title" ascending:NO]]];
+	[fetchRequest setPredicate:[NSPredicate predicateWithFormat:@"title == %@", title]];
+	NSFetchedResultsController *fetchResult = [[NSFetchedResultsController alloc] initWithFetchRequest:fetchRequest
+																				  managedObjectContext:managedObjectContext
+														sectionNameKeyPath:nil cacheName:nil];
+	
+	NSError *error;
+    if (![fetchResult performFetch:&error]) {
+        // TODO: Handle the error appropriately.
+        NSLog(@"fetchResults error %@, %@", error, [error userInfo]);
+		return  nil;
+    }
+	
+	NSArray *fetchArray = [fetchResult fetchedObjects];
+	NSLog(@"convers: %@", fetchArray);
+	if ([fetchArray count] > 0) {
+		return [fetchArray objectAtIndex:0];
+	}
+	else
+	{
+		return nil;
+	}
+	
+}
+
+- (void)fetchResults {
+    if (fetchedResultsController) return;
+    
+    // Create and configure a fetch request.
+    NSFetchRequest *fetchRequest = [[NSFetchRequest alloc] init];
+    NSEntityDescription *entity = 
+    [NSEntityDescription entityForName:@"Message"
+                inManagedObjectContext:managedObjectContext];
+    [fetchRequest setEntity:entity];
+    [fetchRequest setFetchBatchSize:20];
+    
+    // Create the sort descriptors array.
+	self.title = conversation.title;
+    
+    [fetchRequest setSortDescriptors:[[self class]sortDescriptors]];
+	[fetchRequest setPredicate:[NSPredicate predicateWithFormat:@"ANY conversation.title == %@", conversation.title]];
+    
+    // Create and initialize the fetchedResultsController
+    fetchedResultsController = 
+    [[NSFetchedResultsController alloc]
+     initWithFetchRequest:fetchRequest
+     managedObjectContext:managedObjectContext
+     sectionNameKeyPath:nil /* one section */ cacheName:nil];
+    
+    fetchedResultsController.delegate = self;
+    
+    NSError *error;
+    if (![fetchedResultsController performFetch:&error]) {
+        // TODO: Handle the error appropriately.
+        NSLog(@"fetchResults error %@, %@", error, [error userInfo]);
+    }
+}  
+
 - (void)viewDidLoad {
     [super viewDidLoad];
     NSLog(@"viewDidLoad");
@@ -92,12 +151,22 @@ VIEW_WIDTH, HEIGHT);\
     // Listen for keyboard.
     [self registerKeyboard];
 
-    self.view.backgroundColor = CHAT_BACKGROUND_COLOR; // shown during rotation    
+    self.view.backgroundColor = CHAT_BACKGROUND_COLOR; // shown during rotation
+    
+	toViewHeight = 0.0f;
+	if (!conversation) 
+	{
+		toViewHeight = 40.0f;
+		toView = [[ToView alloc] initWithFrame:CGRectMake(0.0f, 0.0f,
+														  self.view.frame.size.width, toViewHeight)];
+		[self.view addSubview:toView];
+		[self.view sendSubviewToBack:toView];
+	}
     
     // Create chatContent.
     chatContent = [[UITableView alloc] initWithFrame:
-                   CGRectMake(0.0f, 0.0f, self.view.frame.size.width,
-                              self.view.frame.size.height-kChatBarHeight1)];
+                   CGRectMake(0.0f, 0.0f + toViewHeight, self.view.frame.size.width,
+                              self.view.frame.size.height-kChatBarHeight1-toViewHeight)];
     chatContent.clearsContextBeforeDrawing = NO;
     chatContent.delegate = self;
     chatContent.dataSource = self;
@@ -118,12 +187,24 @@ VIEW_WIDTH, HEIGHT);\
     [self.view addSubview:chatBar];
     [self.view sendSubviewToBack:chatBar];
     
+    
+    if (conversation.title) 
+	{
+		[self fetchResults];
+		// Construct cellMap from fetchedObjects.
+		cellMap = [[NSMutableArray alloc]
+				   initWithCapacity:[[fetchedResultsController fetchedObjects] count]*2];
+		for (Message *message in [fetchedResultsController fetchedObjects]) {
+			[self addMessage:message];
+		}
+	}
 
-    cellMap = [[NSMutableArray alloc] initWithCapacity:20];
     
     // TODO: Implement check-box edit mode like iPhone Messages does. (Icebox)
     self.navigationItem.rightBarButtonItem = self.editButtonItem;
 }
+
+
 
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated]; // below: work around for [chatContent flashScrollIndicators]
@@ -167,43 +248,82 @@ VIEW_WIDTH, HEIGHT);\
 //    }
 }
 
-- (id) createNewMessageWithText: (NSString*) text{
-    // must be mutable, if need to be edited later......
-    NSDictionary * dict = 
-    [NSMutableDictionary dictionaryWithObjectsAndKeys:
-     text, @"text", [NSDate date], @"sentDate"
-     , nil];
-    
-    return dict;
+- (id) createNewMessageWithText: (NSString*) text
+{
+	if (!conversation) 
+	{
+		conversation = [self getConversationWithTitle:toView.toInput.text];
+		if (!conversation) 
+		{
+			conversation = (Conversation *)[NSEntityDescription
+											insertNewObjectForEntityForName:@"Conversation"
+											inManagedObjectContext:managedObjectContext];
+		}
+		[self fetchResults];
+		// Construct cellMap from fetchedObjects.
+		cellMap = [[NSMutableArray alloc]
+				   initWithCapacity:[[fetchedResultsController fetchedObjects] count]*2];
+		for (Message *message in [fetchedResultsController fetchedObjects]) {
+			[self addMessage:message];
+		}
+		conversation.title = toView.toInput.text;
+		//remove toView
+		[UIView beginAnimations:nil context:NULL];
+		[UIView setAnimationDuration:0.1f];
+		[toView removeFromSuperview];
+		toViewHeight = 0;
+		chatContent.frame = CGRectMake(0.0f, 0.0f + toViewHeight, self.view.frame.size.width,
+									   self.view.frame.size.height-kChatBarHeight1-toViewHeight);
+		[UIView commitAnimations];
+		toView = nil;
+	}
+    // Create new message
+    Message *newMessage = (Message *)
+    [NSEntityDescription
+     insertNewObjectForEntityForName:@"Message"
+     inManagedObjectContext:managedObjectContext];
+    newMessage.text = text;
+    NSDate *now = [[NSDate alloc] init]; 
+    newMessage.sentDate = now; 
+	
+	BOOL isMine_ = (([cellMap count] %3) == 0);
+    //[[self class] setIsMine: isMine_ inMessage: message];
+    newMessage.isMine = [NSNumber numberWithBool: isMine_];
+	newMessage.conversation = self.conversation;
+	[self.conversation addMessagesObject:newMessage];
+	[self.conversation setLastMessage:newMessage];
+	
+	NSLog(@"Save new message");
+	NSError *error;
+	if (![managedObjectContext save:&error]) {
+		// TODO: Handle the error appropriately.
+		NSLog(@"Save message error %@, %@", error, [error userInfo]);
+	}
+	
+    return newMessage;
 }
 
 #pragma mark Message
-- (void) chatBar:(ChatBar *)chatBar didSendText:(NSString *)text {
+- (void) chatBar:(ChatBar *)_chatBar didSendText:(NSString *)text {
     
 //    // TODO: Show progress indicator like iPhone Message app does. (Icebox)
 //    [activityIndicator startAnimating];
     
-    NSString *rightTrimmedMessage =
-       // [chatBar.chatInput.text 
-    [text stringByTrimmingTrailingWhitespaceAndNewlineCharacters];
+    NSString *rightTrimmedMessage = [text stringByTrimmingTrailingWhitespaceAndNewlineCharacters];
     
     // Don't send blank messages.
     if (rightTrimmedMessage.length == 0) {
-        [chatBar clearChatInput];
+        [_chatBar clearChatInput];
         return;
     }
     
-    id object = [self createNewMessageWithText: text];
+    Message *message = [self createNewMessageWithText:text];
 
-    if (YES) {
-        [self addMessage: object];
-        [chatContent reloadData];
-    }else {
-        // if CoreData.. no need, because FRC Delegate will do. 
-    }
+	[self addMessage:message];
+	[chatContent reloadData];
    
     
-    [chatBar  clearChatInput]; // ????????
+    [chatBar clearChatInput]; // ????????
     
     [self scrollToBottomAnimated:YES]; // must come after RESET_CHAT_BAR_HEIGHT above
     
@@ -248,21 +368,30 @@ static NSString *kMessageCell = @"MessageCell";
         
         return cell_date;
     }
-    
-    
-    // Handle Message object.
-    TVCell_Message * cell_message;
-    cell_message = [tableView dequeueReusableCellWithIdentifier:kMessageCell];
-    if (cell_message == nil) {
-        cell_message = [[TVCell_Message alloc] initWithReuseIdentifier: kMessageCell];
+	else if ([object isKindOfClass:[Message class]]) {
+        // Mark message as read.
+        // Let's instead do this (asynchronously) from loadView and iterate over all messages
+        if (![(Message *)object read]) { // not read, so save as read
+            [(Message *)object setRead:[NSNumber numberWithBool:YES]];
+			NSLog(@"Save as read");
+            NSError *error;
+            if (![managedObjectContext save:&error]) {
+                // TODO: Handle the error appropriately.
+                NSLog(@"Save message as read error %@, %@", error, [error userInfo]);
+            }
+        }
+		// Handle Message object.
+		TVCell_Message * cell_message;
+		cell_message = [tableView dequeueReusableCellWithIdentifier:kMessageCell];
+		if (cell_message == nil) {
+			cell_message = [[TVCell_Message alloc] initWithReuseIdentifier: kMessageCell];
+		}
+		//[cell_message setMessage: (Message *)object rightward: !([indexPath row] % 3)];
+		
+		cell_message.message = (Message *)object;
+		return cell_message;
     }
-    //[cell_message setMessage: (Message *)object rightward: !([indexPath row] % 3)];
-    
-    cell_message.message =  object;
-       
-    
-    
-    return cell_message;
+    return nil;
 }
 
 
@@ -295,9 +424,32 @@ static NSString *kMessageCell = @"MessageCell";
     
 }
 
-- (void) chatBar:(ChatBar *)chatBar didChangeHeight:(CGFloat)height {
+- (void) chatBar:(ChatBar *)_chatBar didChangeHeight:(CGFloat)height {
     SET_CHAT_BAR_HEIGHT(height);
     [self scrollToBottomAnimated: YES];
+}
+
+- (void) chatBar:(ChatBar *)chat BarDidChangeText:(NSString *)text
+{
+	if (toView) 
+	{
+		// Enable sendButton if chatInput and toInput has non-blank text, disable otherwise.
+		if (text.length > 0 && toView.toInput.text.length > 0) {
+			[chatBar enableSendButton];
+		} else {
+			[chatBar disableSendButton];
+		}
+	}
+	else
+	{
+		// Enable sendButton if chatInput has non-blank text, disable otherwise.
+		if (text.length > 0) {
+			[chatBar enableSendButton];
+		} else {
+			[chatBar disableSendButton];
+		}
+	}
+
 }
 
 @end

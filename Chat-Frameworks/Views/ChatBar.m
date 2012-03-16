@@ -51,7 +51,7 @@ CGFloat const kChatBarHeight4    = 94.0f;
         chatInput.clearsContextBeforeDrawing = NO;
         chatInput.font = [UIFont systemFontOfSize:kMessageFontSize];
         chatInput.dataDetectorTypes = UIDataDetectorTypeAll;
-        chatInput.backgroundColor = [UIColor redColor];
+        chatInput.backgroundColor = [UIColor clearColor];
         previousContentHeight = chatInput.contentSize.height;
         [self addSubview:chatInput];
         
@@ -61,9 +61,7 @@ CGFloat const kChatBarHeight4    = 94.0f;
         sendButton.frame = CGRectMake(self.frame.size.width - 70.0f, 8.0f, 64.0f, 26.0f);
         sendButton.autoresizingMask = UIViewAutoresizingFlexibleTopMargin | // multi-line input
         UIViewAutoresizingFlexibleLeftMargin;                       // landscape
-        UIImage *sendButtonBackground = [UIImage imageNamed:@"SendButton.png"];
-        [sendButton setBackgroundImage:sendButtonBackground forState:UIControlStateNormal];
-        [sendButton setBackgroundImage:sendButtonBackground forState:UIControlStateDisabled];
+		[sendButton setBackgroundImage:[[UIImage imageNamed:@"SendButtonBackground.png"] stretchableImageWithLeftCapWidth:12 topCapHeight:0] forState:UIControlStateNormal];
         sendButton.titleLabel.font = [UIFont boldSystemFontOfSize:16.0f];
         sendButton.titleLabel.shadowOffset = CGSizeMake(0.0, -1.0);
         [sendButton setTitle:@"Send" forState:UIControlStateNormal];
@@ -188,13 +186,9 @@ CGFloat const kChatBarHeight4    = 94.0f;
         textView.contentOffset = CGPointMake(0.0f, 6.0f); // fix quirk
     }
     
-    // Enable sendButton if chatInput has non-blank text, disable otherwise.
-    if (rightTrimmedText.length > 0) {
-        [self enableSendButton];
-    } else {
-        [self disableSendButton];
+	if ([_delegate respondsToSelector:@selector(chatBar:BarDidChangeText:)]) {
+        [self.delegate chatBar:self BarDidChangeText:rightTrimmedText];
     }
-    
     previousContentHeight = contentHeight;
 }
 

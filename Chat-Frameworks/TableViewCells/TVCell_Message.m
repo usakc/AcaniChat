@@ -16,22 +16,15 @@
 
 @implementation TVCell_Message
 @synthesize message = _message;
-@synthesize rightward = _rightward;
 
-- (void) setMessage:(id)message {
-    BOOL rightward ;
-    if ([message isKindOfClass: [NSDictionary class]]) {
-        rightward = [[message valueForKey: @"isMine"] boolValue];
-    }else {
-        rightward = [[message valueForKey: @"isMine"] boolValue];
-        //[message.isMine boolValue];
-    }
-    [self setMessage: message rightward: rightward];
+- (void) setMessage:(Message* )message {
+    [self setMessage: message rightward: [message.isMine boolValue]];
 }
 
-- (void) setMessage:(id)message rightward: (BOOL) rightward{
+- (void) setMessage:(Message* )message rightward: (BOOL) rightward
+{
     // Configure the cell to show the message in a bubble. Layout message cell & its subviews.
-    NSString * text = [message valueForKey: @"text"];
+    NSString * text = [message text];
     
     CGSize size = 
     [text sizeWithFont:
@@ -41,8 +34,7 @@
     UIImage *bubbleImage;
     if (rightward) { // right bubble
         CGFloat editWidth = self.editing ? 32.0f : 0.0f;
-        msgBackground.frame = 
-        CGRectMake(self.contentView.frame.size.width-size.width-34.0f-editWidth,
+        msgBackground.frame = CGRectMake(self.contentView.frame.size.width-size.width-34.0f-editWidth,
                                          kMessageFontSize-13.0f, size.width+34.0f,
                                          size.height+12.0f);
         bubbleImage = [[UIImage imageNamed:@"ChatBubbleGreen.png"]
@@ -65,7 +57,7 @@
         msgText.autoresizingMask = UIViewAutoresizingFlexibleRightMargin;
     }
     msgBackground.image = bubbleImage;
-    msgText.text = [message objectForKey: @"text"]; // [message text];
+    msgText.text = [message text]; // [message text];
     
 }
 

@@ -1,5 +1,5 @@
-@interface ConversationsViewController : UITableViewController
-<NSFetchedResultsControllerDelegate> {
+@interface ConversationsViewController : UITableViewController <NSFetchedResultsControllerDelegate> 
+{
     
 }
 
