@@ -68,6 +68,7 @@ implement chat. Each user subscribes to the channel named after her username.
 * Abhinav Sharma
 * Nick LeMay
 * Eugene Bae
+* Krystof Celba
 
 ## Related Projects & Links
 
